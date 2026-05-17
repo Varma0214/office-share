@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import './Auth.css';
+import { API_BASE_URL } from '../config';
 
 const Register = () => {
     const [email, setEmail] = useState('');
@@ -13,7 +14,8 @@ const Register = () => {
         e.preventDefault();
         setError('');
         try {
-            const response = await axios.post('http://localhost:5000/api/auth/register', { email, password });
+            // Updated to point directly to your centralized deployed Vercel production URL
+            const response = await axios.post(`${API_BASE_URL}/auth/register`, { email, password });
             localStorage.setItem('token', response.data.token);
             navigate('/dashboard');
         } catch (err) {
@@ -22,25 +24,25 @@ const Register = () => {
     };
 
     return (
-        <div class="auth-container">
-            <div class="auth-card">
-                <h2 class="auth-title">Create Account</h2>
-                <p class="auth-subtitle">Sign up to start sharing files between home and office</p>
+        <div className="auth-container">
+            <div className="auth-card">
+                <h2 className="auth-title">Create Account</h2>
+                <p className="auth-subtitle">Sign up to start sharing files between home and office</p>
                 
-                {error && <div class="error-banner">{error}</div>}
+                {error && <div className="error-banner">{error}</div>}
                 
-                <form onSubmit={handleRegister} class="auth-form">
-                    <div class="form-group">
+                <form onSubmit={handleRegister} className="auth-form">
+                    <div className="form-group">
                         <label>Email Address</label>
                         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="yourname@email.com" required />
                     </div>
-                    <div class="form-group">
+                    <div className="form-group">
                         <label>Password</label>
                         <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
                     </div>
-                    <button type="submit" class="auth-btn auth-btn-reg">Sign Up</button>
+                    <button type="submit" className="auth-btn auth-btn-reg">Sign Up</button>
                 </form>
-                <p class="auth-footer">
+                <p className="auth-footer">
                     Already have an account? <Link to="/login">Log in here</Link>
                 </p>
             </div>

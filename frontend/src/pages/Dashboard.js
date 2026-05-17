@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
+import { API_BASE_URL } from '../config';
 
 const Dashboard = () => {
     const [documents, setDocuments] = useState([]);
@@ -15,9 +16,12 @@ const Dashboard = () => {
     const token = localStorage.getItem('token');
     const SPACE_LIMIT_MB = 25;
 
+    // Helper to dynamically extract the root domain from your API URL (removes the '/api' suffix)
+    const BACKEND_ROOT_URL = API_BASE_URL.replace(/\/api$/, '');
+
     const fetchLoggedData = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/documents', {
+            const res = await axios.get(`${API_BASE_URL}/documents`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setDocuments(res.data);
@@ -45,7 +49,7 @@ const Dashboard = () => {
         if (pdfFile) dataPayload.append('pdf', pdfFile);
 
         try {
-            await axios.post('http://localhost:5000/api/documents', dataPayload, {
+            await axios.post(`${API_BASE_URL}/documents`, dataPayload, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'multipart/form-data'
@@ -69,7 +73,7 @@ const Dashboard = () => {
         if (!window.confirm("Are you sure you want to delete this file to free up space?")) return;
         
         try {
-            await axios.delete(`http://localhost:5000/api/documents/${id}`, {
+            await axios.delete(`${API_BASE_URL}/documents/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setStatus({ type: 'success', text: '🗑️ File removed and space recovered!' });
@@ -85,10 +89,10 @@ const Dashboard = () => {
     };
 
     return (
-        <div class="dashboard-wrapper">
-            <div class="dashboard-header">
+        <div className="dashboard-wrapper">
+            <div className="dashboard-header">
                 <h2>📁 Office & Home File Share</h2>
-                <button onClick={handleSignOut} class="logout-btn">Log Out</button>
+                <button onClick={handleSignOut} className="logout-btn">Log Out</button>
             </div>
 
             {/* ⚠️ Warning Notice Banner */}
@@ -113,13 +117,13 @@ const Dashboard = () => {
             </div>
 
             {status.text && (
-                <div class={`status-msg ${status.type}`}>
+                <div className={`status-msg ${status.type}`}>
                     {status.text}
                 </div>
             )}
 
             {/* Upload Form Box */}
-            <div class="upload-section">
+            <div className="upload-section">
                 <h3>Upload New Notes or PDF</h3>
                 <form onSubmit={handleFormSubmit}>
                     <div style={{ marginBottom: '16px' }}>
@@ -128,33 +132,33 @@ const Dashboard = () => {
                     <div style={{ marginBottom: '16px' }}>
                         <textarea placeholder="Type any reminders, notes, or messages here..." value={note} onChange={(e) => setNote(e.target.value)} />
                     </div>
-                    <div class="file-input-wrapper">
+                    <div className="file-input-wrapper">
                         <label>Attach PDF File (Optional):</label>
-                        <input id="pdfInput" type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files[0])} class="file-custom-input" />
+                        <input id="pdfInput" type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files[0])} className="file-custom-input" />
                     </div>
-                    <button type="submit" class="submit-btn">Save & Upload</button>
+                    <button type="submit" className="submit-btn">Save & Upload</button>
                 </form>
             </div>
 
             {/* Shared Files List Grid */}
-            <h3 class="stream-title">Your Saved Files & Notes</h3>
+            <h3 className="stream-title">Your Saved Files & Notes</h3>
             
             {documents.length === 0 ? (
-                <div class="empty-state">
+                <div className="empty-state">
                     <p>No documents found. Use the box above to save your first file!</p>
                 </div>
             ) : (
-                <div class="document-grid">
+                <div className="document-grid">
                     {documents.map((doc) => (
-                        <div key={doc._id} class="doc-card">
+                        <div key={doc._id} className="doc-card">
                             <div>
-                                <h4 class="doc-title">{doc.title}</h4>
-                                {doc.note && <div class="doc-note">{doc.note}</div>}
+                                <h4 className="doc-title">{doc.title}</h4>
+                                {doc.note && <div className="doc-note">{doc.note}</div>}
                             </div>
                             <div style={{ marginTop: '15px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     {doc.pdfUrl ? (
-                                        <a href={`http://localhost:5000${doc.pdfUrl}`} target="_blank" rel="noopener noreferrer" class="doc-link">
+                                        <a href={`${BACKEND_ROOT_URL}${doc.pdfUrl}`} target="_blank" rel="noopener noreferrer" className="doc-link">
                                             📄 Open PDF &rarr;
                                         </a>
                                     ) : <span></span>}
@@ -164,7 +168,7 @@ const Dashboard = () => {
                                         Delete File
                                     </button>
                                 </div>
-                                <small class="doc-timestamp">
+                                <small className="doc-timestamp">
                                     Uploaded: {new Date(doc.createdAt).toLocaleString()} <br/>
                                     <span style={{ color: '#f59e0b' }}>⚠️ Self-destructs in 2 days</span>
                                 </small>
