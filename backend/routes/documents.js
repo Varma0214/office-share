@@ -6,52 +6,48 @@ const path = require('path');
 const auth = require('../middleware/auth');
 const Document = require('../models/Document');
 
-// Configuring Multer Disk Engine storage
+// Configuring Multer Disk Engine storage for ANY file type
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         cb(null, 'uploads/');
     },
     filename: function (req, file, cb) {
-        cb(null, Date.now() + '-' + file.originalname);
+        // Keeps the original file extension safely (e.g., .docx, .pptx, .xlsx)
+        const fileExt = path.extname(file.originalname);
+        const fileName = path.basename(file.originalname, fileExt).replace(/[^a-zA-Z0-9]/g, "_");
+        cb(null, Date.now() + '-' + fileName + fileExt);
     }
 });
 
-const fileFilter = (req, file, cb) => {
-    if (file.mimetype === 'application/pdf') {
-        cb(null, true);
-    } else {
-        cb(new Error('System accepts PDFs only'), false);
-    }
-};
-
-const upload = multer({ storage: storage, fileFilter: fileFilter });
-
-// Define Per-User Storage Limit (25 MB in Bytes)
-const USER_SPACE_LIMIT = 25 * 1024 * 1024; 
+// REMOVED fileFilter to allow PPT, Word, Excel, Images, etc.
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 25 * 1024 * 1024 } // Hard limit of 25MB per file upload
+});
 
 // @route   POST api/documents
-// @desc    Add a note / upload PDF with strict space quotas
-router.post('/', auth, upload.single('pdf'), async (req, res) => {
+// @desc    Add a note / upload any file type with space quotas
+router.post('/', auth, upload.single('attachedFile'), async (req, res) => {
     try {
         const { title, note } = req.body;
         
         if (!title) {
-            if (req.file) fs.unlinkSync(req.file.path); // Delete uploaded file if validation fails
+            if (req.file) fs.unlinkSync(req.file.path); 
             return res.status(400).json({ msg: 'Document title is required' });
         }
 
         // 1. Calculate how much space this user is currently using
         const userDocs = await Document.find({ user: req.user.id });
-        const currentUsedSpace = userDocs.reduce((acc, doc) => acc + doc.fileSize, 0);
+        const currentUsedSpace = userDocs.reduce((acc, doc) => acc + (doc.fileSize || 0), 0);
         
         // 2. Check the size of the incoming file
         const incomingFileSize = req.file ? req.file.size : 0;
 
-        // 3. Enforce restriction rules
-        if (currentUsedSpace + incomingFileSize > USER_SPACE_LIMIT) {
-            if (req.file) fs.unlinkSync(req.file.path); // Clean up/Delete the file from backend storage
+        // 3. Enforce 25MB restriction rules
+        if (currentUsedSpace + incomingFileSize > (25 * 1024 * 1024)) {
+            if (req.file) fs.unlinkSync(req.file.path); 
             return res.status(400).json({ 
-                msg: `Storage Limit Exceeded! You are allowed a maximum of 25MB. Please delete existing files to free up space.` 
+                msg: `Storage Limit Exceeded! You are allowed a maximum of 25MB total. Please delete older files.` 
             });
         }
 
@@ -59,8 +55,8 @@ router.post('/', auth, upload.single('pdf'), async (req, res) => {
             user: req.user.id,
             title,
             note,
-            pdfUrl: req.file ? `/uploads/${req.file.filename}` : null,
-            fileSize: incomingFileSize // Save the file size in DB
+            pdfUrl: req.file ? `/uploads/${req.file.filename}` : null, // Keeps the database key path compatible
+            fileSize: incomingFileSize 
         });
 
         const savedDoc = await newDoc.save();
@@ -72,7 +68,6 @@ router.post('/', auth, upload.single('pdf'), async (req, res) => {
 });
 
 // @route   GET api/documents
-// @desc    Fetch specific logged-in user files
 router.get('/', auth, async (req, res) => {
     try {
         const documents = await Document.find({ user: req.user.id }).sort({ createdAt: -1 });
@@ -83,15 +78,13 @@ router.get('/', auth, async (req, res) => {
 });
 
 // @route   DELETE api/documents/:id
-// @desc    Manually delete a file to free up space
 router.delete('/:id', auth, async (req, res) => {
     try {
-        const doc = await Document.findById(req.id || req.params.id);
+        const doc = await Document.findById(req.params.id);
         
         if (!doc) return res.status(404).json({ msg: 'Document not found' });
         if (doc.user.toString() !== req.user.id) return res.status(401).json({ msg: 'Unauthorized deletion' });
 
-        // Delete the physical PDF file from the server's backend uploads folder
         if (doc.pdfUrl) {
             const filePath = path.join(__dirname, '..', doc.pdfUrl);
             if (fs.existsSync(filePath)) {

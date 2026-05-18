@@ -8,15 +8,14 @@ const Dashboard = () => {
     const [documents, setDocuments] = useState([]);
     const [title, setTitle] = useState('');
     const [note, setNote] = useState('');
-    const [pdfFile, setPdfFile] = useState(null);
-    const [usedSpace, setUsedSpace] = useState(0); // Tracks MBs
+    const [attachedFile, setAttachedFile] = useState(null); // Renamed state to represent all formats
+    const [usedSpace, setUsedSpace] = useState(0); 
     const [status, setStatus] = useState({ type: '', text: '' });
     const navigate = useNavigate();
 
     const token = localStorage.getItem('token');
     const SPACE_LIMIT_MB = 25;
 
-    // Helper to dynamically extract the root domain from your API URL (removes the '/api' suffix)
     const BACKEND_ROOT_URL = API_BASE_URL.replace(/\/api$/, '');
 
     const fetchLoggedData = async () => {
@@ -26,7 +25,6 @@ const Dashboard = () => {
             });
             setDocuments(res.data);
             
-            // Calculate total bytes used from the synced records
             const totalBytes = res.data.reduce((acc, doc) => acc + (doc.fileSize || 0), 0);
             const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
             setUsedSpace(totalMB);
@@ -46,7 +44,7 @@ const Dashboard = () => {
         const dataPayload = new FormData();
         dataPayload.append('title', title);
         dataPayload.append('note', note);
-        if (pdfFile) dataPayload.append('pdf', pdfFile);
+        if (attachedFile) dataPayload.append('attachedFile', attachedFile); // Matches the updated backend multer key
 
         try {
             await axios.post(`${API_BASE_URL}/documents`, dataPayload, {
@@ -57,9 +55,9 @@ const Dashboard = () => {
             });
             setTitle('');
             setNote('');
-            setPdfFile(null);
-            document.getElementById('pdfInput').value = ''; 
-            setStatus({ type: 'success', text: '✅ Document saved successfully!' });
+            setAttachedFile(null);
+            document.getElementById('fileInput').value = ''; 
+            setStatus({ type: 'success', text: '✅ File uploaded successfully!' });
             fetchLoggedData();
         } catch (err) {
             setStatus({ 
@@ -88,6 +86,13 @@ const Dashboard = () => {
         navigate('/login');
     };
 
+    // Helper function to extract and highlight file types elegantly on screen
+    const getFileLinkText = (url) => {
+        if (!url) return '';
+        const ext = url.split('.').pop().toUpperCase();
+        return `📥 Download ${ext} File`;
+    };
+
     return (
         <div className="dashboard-wrapper">
             <div className="dashboard-header">
@@ -95,12 +100,10 @@ const Dashboard = () => {
                 <button onClick={handleSignOut} className="logout-btn">Log Out</button>
             </div>
 
-            {/* ⚠️ Warning Notice Banner */}
             <div style={{ backgroundColor: '#fffbeb', border: '1px solid #f59e0b', color: '#b45309', padding: '15px', borderRadius: '8px', marginBottom: '20px', fontSize: '14px', fontWeight: '500' }}>
                 ⚠️ <strong>Notice:</strong> All files uploaded to this platform are completely deleted automatically after <strong>2 days (48 hours)</strong>. Please download files to your local machine before they expire.
             </div>
 
-            {/* 📊 Space Quota Progress Indicator */}
             <div style={{ background: '#1e293b', padding: '15px', borderRadius: '8px', marginBottom: '25px', border: '1px solid #334155' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px' }}>
                     <span><strong>Your Storage Quota Usage:</strong></span>
@@ -122,25 +125,24 @@ const Dashboard = () => {
                 </div>
             )}
 
-            {/* Upload Form Box */}
             <div className="upload-section">
-                <h3>Upload New Notes or PDF</h3>
+                <h3>Upload New Notes or Work Files</h3>
                 <form onSubmit={handleFormSubmit}>
                     <div style={{ marginBottom: '16px' }}>
-                        <input type="text" placeholder="Title (e.g., Marketing Project Report)" value={title} onChange={(e) => setTitle(e.target.value)} required />
+                        <input type="text" placeholder="Title (e.g., Q3 Financial Sheet or Project Slides)" value={title} onChange={(e) => setTitle(e.target.value)} required />
                     </div>
                     <div style={{ marginBottom: '16px' }}>
-                        <textarea placeholder="Type any reminders, notes, or messages here..." value={note} onChange={(e) => setNote(e.target.value)} />
+                        <textarea placeholder="Type any reminders, descriptions, or inline notes here..." value={note} onChange={(e) => setNote(e.target.value)} />
                     </div>
                     <div className="file-input-wrapper">
-                        <label>Attach PDF File (Optional):</label>
-                        <input id="pdfInput" type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files[0])} className="file-custom-input" />
+                        <label>Attach Any File Type (Word, Excel, PPT, Image, etc.):</label>
+                        {/* CHANGED: Removed accept="application/pdf" to open up all file pickers */}
+                        <input id="fileInput" type="file" onChange={(e) => setAttachedFile(e.target.files[0])} className="file-custom-input" />
                     </div>
                     <button type="submit" className="submit-btn">Save & Upload</button>
                 </form>
             </div>
 
-            {/* Shared Files List Grid */}
             <h3 className="stream-title">Your Saved Files & Notes</h3>
             
             {documents.length === 0 ? (
@@ -158,12 +160,11 @@ const Dashboard = () => {
                             <div style={{ marginTop: '15px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     {doc.pdfUrl ? (
-                                        <a href={`${BACKEND_ROOT_URL}${doc.pdfUrl}`} target="_blank" rel="noopener noreferrer" className="doc-link">
-                                            📄 Open PDF &rarr;
+                                        <a href={`${BACKEND_ROOT_URL}${doc.pdfUrl}`} download target="_blank" rel="noopener noreferrer" className="doc-link">
+                                            {getFileLinkText(doc.pdfUrl)} &rarr;
                                         </a>
                                     ) : <span></span>}
                                     
-                                    {/* Delete Button */}
                                     <button onClick={() => handleDelete(doc._id)} style={{ background: 'transparent', color: '#fca5a5', border: '1px solid #ef4444', padding: '4px 10px', fontSize: '12px', borderRadius: '4px' }}>
                                         Delete File
                                     </button>
