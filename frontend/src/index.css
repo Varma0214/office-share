@@ -11,28 +11,13 @@
   --radius: 8px;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   background: radial-gradient(circle at top right, #1e1b4b, var(--bg-primary));
   color: var(--text-main);
   min-height: 100vh;
-  line-height: 1.5;
-}
-
-a {
-  color: var(--accent-blue);
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-a:hover {
-  color: #60a5fa;
 }
 
 input, textarea {
@@ -41,8 +26,6 @@ input, textarea {
   color: var(--text-main);
   border-radius: var(--radius);
   padding: 12px;
-  font-size: 14px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
   width: 100%;
 }
 
@@ -58,13 +41,6 @@ button {
   padding: 12px 20px;
   cursor: pointer;
   border: none;
-  transition: transform 0.1s ease, filter 0.2s ease;
+  transition: filter 0.2s ease;
 }
-
-button:active {
-  transform: scale(0.98);
-}
-
-button:hover {
-  filter: brightness(1.1);
-}
+button:hover { filter: brightness(1.1); }

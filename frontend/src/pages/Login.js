@@ -14,7 +14,6 @@ const Login = () => {
         e.preventDefault();
         setError('');
         try {
-            // Updated to point directly to your centralized deployed Vercel production URL
             const response = await axios.post(`${API_BASE_URL}/auth/login`, { email, password });
             localStorage.setItem('token', response.data.token);
             navigate('/dashboard');
@@ -27,11 +26,11 @@ const Login = () => {
         <div className="auth-container">
             <div className="auth-card">
                 <h2 className="auth-title">Welcome Back</h2>
-                <p className="auth-subtitle">Log in to access your shared notes and PDFs</p>
+                <p className="auth-subtitle">Log in to access your shared notes and files</p>
                 
                 {error && <div className="error-banner">{error}</div>}
                 
-                <form onSubmit={handleLogin} className="auth-form">
+                <form onSubmit={handleLogin}>
                     <div className="form-group">
                         <label>Email Address</label>
                         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="yourname@email.com" required />

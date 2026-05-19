@@ -14,7 +14,6 @@ const Register = () => {
         e.preventDefault();
         setError('');
         try {
-            // Updated to point directly to your centralized deployed Vercel production URL
             const response = await axios.post(`${API_BASE_URL}/auth/register`, { email, password });
             localStorage.setItem('token', response.data.token);
             navigate('/dashboard');
@@ -31,7 +30,7 @@ const Register = () => {
                 
                 {error && <div className="error-banner">{error}</div>}
                 
-                <form onSubmit={handleRegister} className="auth-form">
+                <form onSubmit={handleRegister}>
                     <div className="form-group">
                         <label>Email Address</label>
                         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="yourname@email.com" required />

@@ -16,17 +16,17 @@ const DocumentSchema = new mongoose.Schema({
         trim: true
     },
     pdfUrl: {
-        type: String,
+        type: String, // Stores the secure Cloudinary web URL string
         default: null
     },
     fileSize: { 
         type: Number, 
-        default: 0 // Size in Bytes
+        default: 0 // Tracked in bytes
     },
     createdAt: {
         type: Date,
         default: Date.now,
-        expires: 172800 // 🔥 AUTOMATIC DELETION: 172800 seconds = 2 days
+        expires: 172800 // 🔥 AUTOMATIC EXPIRATION: 2 Days = 172800 seconds
     }
 });
 
