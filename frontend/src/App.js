@@ -1,30 +1,44 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
-// 1. Import the AuthProvider component from your context folder
-import { AuthProvider } from './context/AuthContext'; 
+import './App.css';
 
-const PrivateRoute = ({ children }) => {
-    const token = localStorage.getItem('token');
-    return token ? children : <Navigate to="/login" />;
+const ProtectedRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="loading-screen"><div className="spinner" /></div>;
+  return user ? children : <Navigate to="/login" />;
+};
+
+const PublicRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="loading-screen"><div className="spinner" /></div>;
+  return !user ? children : <Navigate to="/dashboard" />;
 };
 
 function App() {
-    return (
-        // 2. Wrap the entire Router tree inside the AuthProvider
-        <AuthProvider>
-            <Router>
-                <Routes>
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
-                    <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-                    <Route path="*" element={<Navigate to="/login" />} />
-                </Routes>
-            </Router>
-        </AuthProvider>
-    );
+  return (
+    <AuthProvider>
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
+            style: { background: '#1a1a2e', color: '#e0e0ff', border: '1px solid #4a4a8a' }
+          }}
+        />
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" />} />
+          <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+          <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        </Routes>
+      </Router>
+    </AuthProvider>
+  );
 }
 
 export default App;

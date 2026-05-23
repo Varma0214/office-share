@@ -9,16 +9,16 @@ const fileSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  mimetype: {
+  fileType: {
     type: String,
     required: true
   },
-  size: {
+  fileSize: {
     type: Number,
     required: true
   },
-  fileData: {
-    type: Buffer,
+  filePath: {
+    type: String,
     required: true
   },
   uploadedBy: {
@@ -26,19 +26,39 @@ const fileSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  sharedWith: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  isPublic: {
+    type: Boolean,
+    default: false
+  },
   description: {
     type: String,
     default: ''
   },
   category: {
     type: String,
-    enum: ['office', 'home', 'shared'],
-    default: 'shared'
+    enum: ['document', 'presentation', 'spreadsheet', 'pdf', 'image', 'other'],
+    default: 'other'
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
+  downloadCount: {
+    type: Number,
+    default: 0
   }
+}, { timestamps: true });
+
+// Auto-categorize based on mimetype
+fileSchema.pre('save', function (next) {
+  const type = this.fileType;
+  if (type.includes('word') || type.includes('document')) this.category = 'document';
+  else if (type.includes('presentation') || type.includes('powerpoint')) this.category = 'presentation';
+  else if (type.includes('sheet') || type.includes('excel')) this.category = 'spreadsheet';
+  else if (type.includes('pdf')) this.category = 'pdf';
+  else if (type.includes('image')) this.category = 'image';
+  else this.category = 'other';
+  next();
 });
 
 module.exports = mongoose.model('File', fileSchema);

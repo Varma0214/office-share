@@ -1,127 +1,70 @@
-import React, { useState, useContext } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import AuthContext from '../context/AuthContext';
-import './Auth.css';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 
-const Register = () => {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
-  });
-
-  const [loading, setLoading] = useState(false);
-  const { register } = useContext(AuthContext);
+export default function Register() {
+  const { register } = useAuth();
   const navigate = useNavigate();
-
-  const { name, email, password, confirmPassword } = formData;
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' });
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!name || !email || !password || !confirmPassword) {
-      toast.error('Please fill in all fields');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      toast.error('Passwords do not match');
-      return;
-    }
-
-    if (password.length < 6) {
-      toast.error('Password must be at least 6 characters');
-      return;
-    }
-
+    if (!form.name || !form.email || !form.password) return toast.error('All fields required');
+    if (form.password !== form.confirm) return toast.error('Passwords do not match');
+    if (form.password.length < 6) return toast.error('Password must be at least 6 characters');
+    setLoading(true);
     try {
-      setLoading(true);
-      await register(name, email, password);
-      toast.success('Registration successful!');
+      await register(form.name, form.email, form.password);
+      toast.success('Account created!');
       navigate('/dashboard');
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Registration failed');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Registration failed');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="auth-container">
+    <div className="auth-page">
+      <div className="auth-bg" />
       <div className="auth-card">
-        <h1 className="auth-title">📁 Register</h1>
-        <p className="auth-subtitle">Create your account to start sharing files.</p>
-        
-        <form onSubmit={handleSubmit} className="auth-form">
+        <div className="auth-logo">
+          <h1>⇄ FileSync</h1>
+          <span>Office ↔ Home File Sharing</span>
+        </div>
+        <h2 className="auth-title">Create account</h2>
+        <p className="auth-sub">Start sharing files between office and home</p>
+        <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Name</label>
-            <input
-              type="text"
-              name="name"
-              value={name}
-              onChange={handleChange}
-              placeholder="Enter your name"
-              className="form-input"
-            />
+            <label className="form-label">Full Name</label>
+            <input type="text" className="form-input" placeholder="John Doe"
+              value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </div>
-
           <div className="form-group">
-            <label>Email</label>
-            <input
-              type="email"
-              name="email"
-              value={email}
-              onChange={handleChange}
-              placeholder="Enter your email"
-              className="form-input"
-            />
+            <label className="form-label">Email</label>
+            <input type="email" className="form-input" placeholder="you@example.com"
+              value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           </div>
-
           <div className="form-group">
-            <label>Password</label>
-            <input
-              type="password"
-              name="password"
-              value={password}
-              onChange={handleChange}
-              placeholder="Enter your password"
-              className="form-input"
-            />
+            <label className="form-label">Password</label>
+            <input type="password" className="form-input" placeholder="Min. 6 characters"
+              value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
           </div>
-
           <div className="form-group">
-            <label>Confirm Password</label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={confirmPassword}
-              onChange={handleChange}
-              placeholder="Confirm your password"
-              className="form-input"
-            />
+            <label className="form-label">Confirm Password</label>
+            <input type="password" className="form-input" placeholder="Re-enter password"
+              value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} />
           </div>
-
-          <button 
-            type="submit" 
-            className="btn-submit"
-            disabled={loading}
-          >
-            {loading ? 'Registering...' : 'Register'}
+          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+            {loading ? 'Creating...' : 'Create Account'}
           </button>
         </form>
-
-        <p className="auth-link">
-          Already have an account? <Link to="/login">Login here</Link>
-        </p>
+        <div className="auth-link-row">
+          Already have an account? <Link to="/login">Sign in</Link>
+        </div>
       </div>
     </div>
   );
-};
-
-export default Register;
+}

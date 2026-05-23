@@ -1,59 +1,31 @@
 import axios from 'axios';
 
-const getConfig = () => {
-  const user = JSON.parse(localStorage.getItem('user'));
-  
-  return {
-    headers: {
-      Authorization: `Bearer ${user?.token}`,
-    },
-  };
-};
+const API = axios.create({ baseURL: '/api' });
 
-export const uploadFile = async (formData) => {
-  const user = JSON.parse(localStorage.getItem('user'));
-  
-  const config = {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-      Authorization: `Bearer ${user?.token}`,
-    },
-  };
+API.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
-  const { data } = await axios.post('/api/files/upload', formData, config);
-  return data;
-};
+// File APIs
+export const uploadFile = (formData, onProgress) =>
+  API.post('/files/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: (e) => {
+      if (onProgress) onProgress(Math.round((e.loaded * 100) / e.total));
+    }
+  });
 
-export const getFiles = async () => {
-  const { data } = await axios.get('/api/files', getConfig());
-  return data;
-};
+export const getMyFiles = () => API.get('/files/my');
+export const getSharedFiles = () => API.get('/files/shared');
+export const getAllFiles = () => API.get('/files/all');
+export const deleteFile = (id) => API.delete(`/files/${id}`);
+export const shareFile = (id, data) => API.put(`/files/${id}/share`, data);
+export const downloadFile = (id) => `${window.location.origin}/api/files/download/${id}`;
 
-export const getAllFiles = async () => {
-  const { data } = await axios.get('/api/files/all', getConfig());
-  return data;
-};
+// User APIs
+export const searchUsers = (email) => API.get(`/users/search?email=${email}`);
+export const getAllUsers = () => API.get('/users/all');
 
-export const downloadFile = async (id) => {
-  const user = JSON.parse(localStorage.getItem('user'));
-  
-  const config = {
-    headers: {
-      Authorization: `Bearer ${user?.token}`,
-    },
-    responseType: 'blob',
-  };
-
-  const { data } = await axios.get(`/api/files/download/${id}`, config);
-  return data;
-};
-
-export const deleteFile = async (id) => {
-  const { data } = await axios.delete(`/api/files/${id}`, getConfig());
-  return data;
-};
-
-export const getFilesByCategory = async (category) => {
-  const { data } = await axios.get(`/api/files/category/${category}`, getConfig());
-  return data;
-};
+export default API;

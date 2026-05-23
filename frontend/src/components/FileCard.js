@@ -1,86 +1,95 @@
-import React from 'react';
-import './FileCard.css';
+import React, { useState } from 'react';
+import { formatFileSize, getFileIcon, getCategoryColor, formatDate } from '../utils/fileHelpers';
+import { deleteFile } from '../utils/api';
+import axios from 'axios';
+import toast from 'react-hot-toast';
 
-const FileCard = ({ file, onDownload, onDelete, showDelete }) => {
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+export default function FileCard({ file, currentUser, onDelete, onShare }) {
+  const isOwner = file.uploadedBy?._id === currentUser?._id || file.uploadedBy === currentUser?._id;
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`/api/files/download/${file._id}`, {
+        responseType: 'blob',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const blob = new Blob([response.data], { type: file.fileType });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.originalName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success('Downloaded successfully');
+    } catch (err) {
+      toast.error('Download failed — file may have been deleted');
+    } finally {
+      setDownloading(false);
+    }
   };
 
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete "${file.originalName}"?`)) return;
+    try {
+      await deleteFile(file._id);
+      onDelete(file._id);
+      toast.success('File deleted');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Delete failed');
+    }
   };
 
-  const getFileIcon = (mimetype) => {
-    if (mimetype.includes('pdf')) return '📄';
-    if (mimetype.includes('word') || mimetype.includes('document')) return '📝';
-    if (mimetype.includes('sheet') || mimetype.includes('excel')) return '📊';
-    if (mimetype.includes('presentation') || mimetype.includes('powerpoint')) return '📽️';
-    if (mimetype.includes('image')) return '🖼️';
-    if (mimetype.includes('video')) return '🎥';
-    if (mimetype.includes('audio')) return '🎵';
-    if (mimetype.includes('zip') || mimetype.includes('rar')) return '🗜️';
-    return '📎';
-  };
-
-  const getCategoryBadge = (category) => {
-    const badges = {
-      office: { emoji: '🏢', color: '#3498db' },
-      home: { emoji: '🏠', color: '#e74c3c' },
-      shared: { emoji: '🔗', color: '#2ecc71' }
-    };
-    return badges[category] || badges.shared;
-  };
-
-  const badge = getCategoryBadge(file.category);
+  const catColor = getCategoryColor(file.category);
 
   return (
-    <div className="file-card">
-      <div className="file-icon">{getFileIcon(file.mimetype)}</div>
-      <div className="file-details">
-        <h3 className="file-name">{file.originalName}</h3>
-        {file.description && <p className="file-description">{file.description}</p>}
-        <div className="file-meta">
-          <span className="file-size">{formatFileSize(file.size)}</span>
-          <span className="file-date">{formatDate(file.createdAt)}</span>
+    <div className="file-card" style={{ '--cat-color': catColor }}>
+      <div className="file-card-header">
+        <div className="file-icon-wrap" style={{ background: `${catColor}18` }}>
+          {getFileIcon(file.fileType, file.category)}
         </div>
-        {file.uploadedBy && (
-          <p className="file-uploader">By: {file.uploadedBy.name}</p>
-        )}
-        <span 
-          className="category-badge" 
-          style={{ backgroundColor: badge.color }}
-        >
-          {badge.emoji} {file.category}
-        </span>
+        <div className="file-info">
+          <div className="file-name" title={file.originalName}>{file.originalName}</div>
+          <div className="file-meta">
+            {formatFileSize(file.fileSize)} · {formatDate(file.createdAt)}
+          </div>
+          <div className="file-meta" style={{ marginTop: 2 }}>
+            by {isOwner ? 'You' : file.uploadedBy?.name}
+          </div>
+        </div>
       </div>
-      <div className="file-actions">
-        <button 
-          onClick={() => onDownload(file._id, file.originalName)} 
-          className="btn-download"
-        >
-          ⬇️ Download
+
+      {file.description && (
+        <div className="file-desc">{file.description}</div>
+      )}
+
+      <div className="file-tags">
+        <span className="tag">{file.category}</span>
+        {file.isPublic && <span className="tag tag-public">🌐 Public</span>}
+        {!file.isPublic && file.sharedWith?.length > 0 && (
+          <span className="tag tag-shared">👥 {file.sharedWith.length} shared</span>
+        )}
+        {file.downloadCount > 0 && (
+          <span className="tag">⬇ {file.downloadCount}</span>
+        )}
+      </div>
+
+      <div className="file-card-footer">
+        <button className="btn btn-ghost btn-sm" onClick={handleDownload} disabled={downloading}>
+          {downloading ? '⏳ Downloading...' : '⬇ Download'}
         </button>
-        {showDelete && (
-          <button 
-            onClick={() => onDelete(file._id)} 
-            className="btn-delete"
-          >
-            🗑️ Delete
-          </button>
+        {isOwner && (
+          <>
+            <button className="btn btn-success btn-sm" onClick={() => onShare(file)}>⇄ Share</button>
+            <button className="btn btn-danger btn-sm" onClick={handleDelete}>🗑</button>
+          </>
         )}
       </div>
     </div>
   );
-};
-
-export default FileCard;
+}

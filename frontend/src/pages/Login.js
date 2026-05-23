@@ -1,81 +1,66 @@
-import React, { useState, useContext } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import AuthContext from '../context/AuthContext';
-import './Auth.css';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 
-const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const { login } = useContext(AuthContext);
+export default function Login() {
+  const { login } = useAuth();
   const navigate = useNavigate();
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!email || !password) {
-      toast.error('Please fill in all fields');
-      return;
-    }
-
+    if (!form.email || !form.password) return toast.error('All fields required');
+    setLoading(true);
     try {
-      setLoading(true);
-      await login(email, password);
-      toast.success('Login successful!');
+      await login(form.email, form.password);
+      toast.success('Welcome back!');
       navigate('/dashboard');
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Login failed');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Login failed');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="auth-container">
+    <div className="auth-page">
+      <div className="auth-bg" />
       <div className="auth-card">
-        <h1 className="auth-title">📁 Login</h1>
-        <p className="auth-subtitle">Welcome back! Please login to your account.</p>
-        
-        <form onSubmit={handleSubmit} className="auth-form">
+        <div className="auth-logo">
+          <h1>⇄ FileSync</h1>
+          <span>Office ↔ Home File Sharing</span>
+        </div>
+        <h2 className="auth-title">Sign in</h2>
+        <p className="auth-sub">Access your shared files from anywhere</p>
+        <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Email</label>
+            <label className="form-label">Email</label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              className="form-input"
+              type="email" className="form-input"
+              placeholder="you@example.com"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
             />
           </div>
-
           <div className="form-group">
-            <label>Password</label>
+            <label className="form-label">Password</label>
             <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              className="form-input"
+              type="password" className="form-input"
+              placeholder="••••••••"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
             />
           </div>
-
-          <button 
-            type="submit" 
-            className="btn-submit"
-            disabled={loading}
-          >
-            {loading ? 'Logging in...' : 'Login'}
+          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-
-        <p className="auth-link">
-          Don't have an account? <Link to="/register">Register here</Link>
-        </p>
+        <div className="auth-link-row">
+          Don't have an account? <Link to="/register">Create one</Link>
+        </div>
       </div>
     </div>
   );
-};
-
-export default Login;
+}
