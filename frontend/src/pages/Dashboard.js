@@ -1,144 +1,122 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import FileCard from '../components/FileCard';
+import { getAllFiles, downloadFile, deleteFile } from '../utils/api';
 import './Dashboard.css';
-import { API_BASE_URL } from '../config';
 
 const Dashboard = () => {
-    const [documents, setDocuments] = useState([]);
-    const [title, setTitle] = useState('');
-    const [note, setNote] = useState('');
-    const [attachedFile, setAttachedFile] = useState(null); 
-    const [usedSpace, setUsedSpace] = useState(0); 
-    const [status, setStatus] = useState({ type: '', text: '' });
-    const navigate = useNavigate();
+  const [files, setFiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
 
-    const token = localStorage.getItem('token');
-    const SPACE_LIMIT_MB = 25;
+  useEffect(() => {
+    fetchFiles();
+  }, []);
 
-    const fetchLoggedData = async () => {
-        try {
-            const res = await axios.get(`${API_BASE_URL}/documents`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setDocuments(res.data);
-            const totalBytes = res.data.reduce((acc, doc) => acc + (doc.fileSize || 0), 0);
-            setUsedSpace((totalBytes / (1024 * 1024)).toFixed(2));
-        } catch (err) {
-            console.error('Error loading documents:', err);
-        }
-    };
+  const fetchFiles = async () => {
+    try {
+      setLoading(true);
+      const data = await getAllFiles();
+      setFiles(data);
+    } catch (error) {
+      toast.error('Failed to fetch files');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    useEffect(() => { fetchLoggedData(); }, []);
+  const handleDownload = async (id, filename) => {
+    try {
+      const blob = await downloadFile(id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('File downloaded successfully');
+    } catch (error) {
+      toast.error('Failed to download file');
+    }
+  };
 
-    const handleFormSubmit = async (e) => {
-        e.preventDefault();
-        setStatus({ type: 'info', text: '📤 Initializing cloud connection...' });
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this file?')) {
+      try {
+        await deleteFile(id);
+        toast.success('File deleted successfully');
+        fetchFiles();
+      } catch (error) {
+        toast.error(error.response?.data?.message || 'Failed to delete file');
+      }
+    }
+  };
 
-        let finalFileUrl = null;
-        let finalFileSize = 0;
+  const filteredFiles = files.filter(file => {
+    if (filter === 'all') return true;
+    return file.category === filter;
+  });
 
-        if (attachedFile) {
-            setStatus({ type: 'info', text: '📤 Uploading file to secure cloud storage...' });
-            const cloudinaryData = new FormData();
-            cloudinaryData.append('file', attachedFile);
-            cloudinaryData.append('upload_preset', 'office_share_preset'); // Your active preset name
+  const user = JSON.parse(localStorage.getItem('user'));
 
-            try {
-                const cloudRes = await axios.post(
-                    `https://api.cloudinary.com/v1_1/duccim6pz/auto/upload`, 
-                    cloudinaryData
-                );
-                finalFileUrl = cloudRes.data.secure_url; 
-                finalFileSize = attachedFile.size;
-            } catch (err) {
-                setStatus({ type: 'error', text: '❌ Cloud hosting upload failed. Check preset parameters.' });
-                return;
-            }
-        }
+  return (
+    <div className="dashboard-container">
+      <div className="dashboard-header">
+        <h1>📂 File Dashboard</h1>
+        <p>View and manage all your shared files</p>
+      </div>
 
-        try {
-            await axios.post(`${API_BASE_URL}/documents`, {
-                title, note, fileUrl: finalFileUrl, fileSize: finalFileSize
-            }, {
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-            });
+      <div className="filter-section">
+        <button 
+          className={filter === 'all' ? 'filter-btn active' : 'filter-btn'}
+          onClick={() => setFilter('all')}
+        >
+          All Files ({files.length})
+        </button>
+        <button 
+          className={filter === 'office' ? 'filter-btn active' : 'filter-btn'}
+          onClick={() => setFilter('office')}
+        >
+          🏢 Office ({files.filter(f => f.category === 'office').length})
+        </button>
+        <button 
+          className={filter === 'home' ? 'filter-btn active' : 'filter-btn'}
+          onClick={() => setFilter('home')}
+        >
+          🏠 Home ({files.filter(f => f.category === 'home').length})
+        </button>
+        <button 
+          className={filter === 'shared' ? 'filter-btn active' : 'filter-btn'}
+          onClick={() => setFilter('shared')}
+        >
+          🔗 Shared ({files.filter(f => f.category === 'shared').length})
+        </button>
+      </div>
 
-            setTitle(''); setNote(''); setAttachedFile(null);
-            document.getElementById('fileInput').value = ''; 
-            setStatus({ type: 'success', text: '✅ Document entries shared successfully!' });
-            fetchLoggedData();
-        } catch (err) {
-            setStatus({ type: 'error', text: err.response?.data?.msg || '❌ Failed to save document settings.' });
-        }
-    };
-
-    const handleDelete = async (id) => {
-        if (!window.confirm("Are you sure you want to delete this file to free up space?")) return;
-        try {
-            await axios.delete(`${API_BASE_URL}/documents/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-            setStatus({ type: 'success', text: '🗑️ File removed and space recovered!' });
-            fetchLoggedData();
-        } catch (err) {
-            setStatus({ type: 'error', text: 'Failed to clear the document.' });
-        }
-    };
-
-    const handleSignOut = () => { localStorage.removeItem('token'); navigate('/login'); };
-    const getFileLinkText = (url) => { if (!url) return ''; const ext = url.split('.').pop().split('?')[0].toUpperCase(); return `📥 Download ${ext} File`; };
-
-    return (
-        <div className="dashboard-wrapper">
-            <div className="dashboard-header">
-                <h2>📁 Office & Home File Share</h2>
-                <button onClick={handleSignOut} className="logout-btn">Log Out</button>
-            </div>
-            <div style={{ backgroundColor: '#fffbeb', border: '1px solid #f59e0b', color: '#b45309', padding: '15px', borderRadius: '8px', marginBottom: '20px', fontSize: '14px', fontWeight: '500' }}>
-                ⚠️ <strong>Notice:</strong> All files uploaded here are automatically deleted after <strong>2 days (48 hours)</strong>. Save your work locally!
-            </div>
-            <div style={{ background: '#1e293b', padding: '15px', borderRadius: '8px', marginBottom: '25px', border: '1px solid #334155' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px' }}>
-                    <span><strong>Your Storage Quota Usage:</strong></span>
-                    <span><strong>{usedSpace} MB / {SPACE_LIMIT_MB} MB</strong></span>
-                </div>
-                <div style={{ width: '100%', backgroundColor: '#0f172a', borderRadius: '4px', height: '10px', overflow: 'hidden' }}>
-                    <div style={{ width: `${Math.min((usedSpace / SPACE_LIMIT_MB) * 100, 100)}%`, backgroundColor: usedSpace > 20 ? '#ef4444' : '#3b82f6', height: '100%', transition: 'width 0.3s ease' }}></div>
-                </div>
-            </div>
-            {status.text && <div className={`status-msg ${status.type}`}>{status.text}</div>}
-            <div className="upload-section">
-                <h3>Upload New Notes or Work Files</h3>
-                <form onSubmit={handleFormSubmit}>
-                    <div style={{ marginBottom: '16px' }}><input type="text" placeholder="Title (e.g., Marketing Project Report)" value={title} onChange={(e) => setTitle(e.target.value)} required /></div>
-                    <div style={{ marginBottom: '16px' }}><textarea placeholder="Type any reminders or text descriptions here..." value={note} onChange={(e) => setNote(e.target.value)} /></div>
-                    <div className="file-input-wrapper">
-                        <label>Attach Any File Type (Word, Excel, PPT, Image, PDF):</label>
-                        <input id="fileInput" type="file" onChange={(e) => setAttachedFile(e.target.files[0])} className="file-custom-input" />
-                    </div>
-                    <button type="submit" className="submit-btn">Save & Upload</button>
-                </form>
-            </div>
-            <h3 style={{ marginBottom: '20px' }}>Your Saved Files & Notes</h3>
-            {documents.length === 0 ? (
-                <div className="empty-state"><p>No documents found. Use the box above to save your first file!</p></div>
-            ) : (
-                <div className="document-grid">
-                    {documents.map((doc) => (
-                        <div key={doc._id} className="doc-card">
-                            <div><h4 style={{ marginBottom: '10px' }}>{doc.title}</h4>{doc.note && <div className="doc-note">{doc.note}</div>}</div>
-                            <div style={{ marginTop: '15px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    {doc.pdfUrl ? <a href={doc.pdfUrl} download target="_blank" rel="noopener noreferrer" className="doc-link">{getFileLinkText(doc.pdfUrl)} &rarr;</a> : <span></span>}
-                                    <button onClick={() => handleDelete(doc._id)} style={{ background: 'transparent', color: '#fca5a5', border: '1px solid #ef4444', padding: '4px 10px', fontSize: '12px', borderRadius: '4px' }}>Delete File</button>
-                                </div>
-                                <small className="doc-timestamp">Uploaded: {new Date(doc.createdAt).toLocaleString()} <br/><span style={{ color: '#f59e0b' }}>⚠️ Self-destructs in 2 days</span></small>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+      {loading ? (
+        <div className="loading">Loading files...</div>
+      ) : filteredFiles.length === 0 ? (
+        <div className="no-files">
+          <p>📭 No files found</p>
+          <p>Start by uploading your first file!</p>
         </div>
-    );
+      ) : (
+        <div className="files-grid">
+          {filteredFiles.map((file) => (
+            <FileCard
+              key={file._id}
+              file={file}
+              onDownload={handleDownload}
+              onDelete={handleDelete}
+              showDelete={file.uploadedBy._id === user._id}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default Dashboard;

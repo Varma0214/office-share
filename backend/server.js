@@ -1,30 +1,44 @@
 const express = require('express');
+const dotenv = require('dotenv');
 const cors = require('cors');
-require('dotenv').config();
+const fileUpload = require('express-fileupload');
 const connectDB = require('./config/db');
+
+// Load env vars
+dotenv.config();
+
+// Connect to database
+connectDB();
 
 const app = express();
 
-// Connect to MongoDB
-connectDB();
-
-// Global Middlewares
+// Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(fileUpload({
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max file size
+  abortOnLimit: true,
+  createParentPath: true
+}));
 
-// API Base Root Route
+// Routes
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/files', require('./routes/fileRoutes'));
+
+// Root route
 app.get('/', (req, res) => {
-    res.send('📁 Office-Home Share Backend API is running perfectly!');
+  res.json({ message: 'Office-Home File Share API' });
 });
 
-// API Routes Setup
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/documents', require('./routes/documents'));
-
-// Export app for Vercel / Render runtime compatibility
-module.exports = app;
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Something went wrong!' });
+});
 
 const PORT = process.env.PORT || 5000;
-if (process.env.NODE_ENV !== 'production') {
-    app.listen(PORT, () => console.log(`🚀 Server securely running on port ${PORT}`));
-}
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
