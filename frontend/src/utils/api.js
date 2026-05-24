@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API = axios.create({ baseURL: '/api' });
+const API = axios.create({
+  baseURL: `${process.env.REACT_APP_API_URL}/api`
+});
 
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
@@ -8,7 +10,6 @@ API.interceptors.request.use((config) => {
   return config;
 });
 
-// File APIs
 export const uploadFile = (formData, onProgress) =>
   API.post('/files/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
@@ -22,10 +23,5 @@ export const getSharedFiles = () => API.get('/files/shared');
 export const getAllFiles = () => API.get('/files/all');
 export const deleteFile = (id) => API.delete(`/files/${id}`);
 export const shareFile = (id, data) => API.put(`/files/${id}/share`, data);
-export const downloadFile = (id) => `${window.location.origin}/api/files/download/${id}`;
-
-// User APIs
-export const searchUsers = (email) => API.get(`/users/search?email=${email}`);
-export const getAllUsers = () => API.get('/users/all');
 
 export default API;

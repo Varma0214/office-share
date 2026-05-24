@@ -12,11 +12,13 @@ export default function FileCard({ file, currentUser, onDelete, onShare }) {
     setDownloading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`/api/files/download/${file._id}`, {
-        responseType: 'blob',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/files/download/${file._id}`,
+        {
+          responseType: 'blob',
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
       const blob = new Blob([response.data], { type: file.fileType });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -27,7 +29,7 @@ export default function FileCard({ file, currentUser, onDelete, onShare }) {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
       toast.success('Downloaded successfully');
-    } catch (err) {
+    } catch {
       toast.error('Download failed — file may have been deleted');
     } finally {
       setDownloading(false);
@@ -64,9 +66,7 @@ export default function FileCard({ file, currentUser, onDelete, onShare }) {
         </div>
       </div>
 
-      {file.description && (
-        <div className="file-desc">{file.description}</div>
-      )}
+      {file.description && <div className="file-desc">{file.description}</div>}
 
       <div className="file-tags">
         <span className="tag">{file.category}</span>
@@ -74,9 +74,7 @@ export default function FileCard({ file, currentUser, onDelete, onShare }) {
         {!file.isPublic && file.sharedWith?.length > 0 && (
           <span className="tag tag-shared">👥 {file.sharedWith.length} shared</span>
         )}
-        {file.downloadCount > 0 && (
-          <span className="tag">⬇ {file.downloadCount}</span>
-        )}
+        {file.downloadCount > 0 && <span className="tag">⬇ {file.downloadCount}</span>}
       </div>
 
       <div className="file-card-footer">
