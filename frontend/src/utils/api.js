@@ -23,5 +23,7 @@ export const getSharedFiles = () => API.get('/files/shared');
 export const getAllFiles = () => API.get('/files/all');
 export const deleteFile = (id) => API.delete(`/files/${id}`);
 export const shareFile = (id, data) => API.put(`/files/${id}/share`, data);
+export const searchUsers = (email) => API.get(`/users/search?email=${email}`);
+export const getAllUsers = () => API.get('/users/all');
 
 export default API;
