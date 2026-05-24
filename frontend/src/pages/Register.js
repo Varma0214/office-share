@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
 export default function Register() {
   const { register } = useAuth();
-  const navigate = useNavigate();
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' });
   const [loading, setLoading] = useState(false);
 
@@ -18,10 +17,9 @@ export default function Register() {
     try {
       await register(form.name, form.email, form.password);
       toast.success('Account created!');
-      navigate('/dashboard');
+      window.location.href = '/dashboard';
     } catch (err) {
       toast.error(err.response?.data?.message || 'Registration failed');
-    } finally {
       setLoading(false);
     }
   };
