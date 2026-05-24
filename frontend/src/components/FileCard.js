@@ -5,7 +5,9 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 
 export default function FileCard({ file, currentUser, onDelete, onShare }) {
-  const isOwner = file.uploadedBy?._id === currentUser?._id || file.uploadedBy === currentUser?._id;
+  const isOwner =
+    file.uploadedBy?._id === currentUser?._id ||
+    file.uploadedBy === currentUser?._id;
   const [downloading, setDownloading] = useState(false);
 
   const handleDownload = async () => {
@@ -19,6 +21,16 @@ export default function FileCard({ file, currentUser, onDelete, onShare }) {
           headers: { Authorization: `Bearer ${token}` }
         }
       );
+
+      // Check if response is an error JSON disguised as blob
+      const contentType = response.headers['content-type'] || '';
+      if (contentType.includes('application/json')) {
+        const text = await response.data.text();
+        const json = JSON.parse(text);
+        toast.error(json.message || 'Download failed');
+        return;
+      }
+
       const blob = new Blob([response.data], { type: file.fileType });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -29,8 +41,19 @@ export default function FileCard({ file, currentUser, onDelete, onShare }) {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
       toast.success('Downloaded successfully');
-    } catch {
-      toast.error('Download failed — file may have been deleted');
+    } catch (err) {
+      // Parse blob error response
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const json = JSON.parse(text);
+          toast.error(json.message || 'Download failed');
+        } catch {
+          toast.error('Download failed');
+        }
+      } else {
+        toast.error(err.response?.data?.message || 'Download failed');
+      }
     } finally {
       setDownloading(false);
     }
@@ -74,17 +97,27 @@ export default function FileCard({ file, currentUser, onDelete, onShare }) {
         {!file.isPublic && file.sharedWith?.length > 0 && (
           <span className="tag tag-shared">👥 {file.sharedWith.length} shared</span>
         )}
-        {file.downloadCount > 0 && <span className="tag">⬇ {file.downloadCount}</span>}
+        {file.downloadCount > 0 && (
+          <span className="tag">⬇ {file.downloadCount}</span>
+        )}
       </div>
 
       <div className="file-card-footer">
-        <button className="btn btn-ghost btn-sm" onClick={handleDownload} disabled={downloading}>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={handleDownload}
+          disabled={downloading}
+        >
           {downloading ? '⏳ Downloading...' : '⬇ Download'}
         </button>
         {isOwner && (
           <>
-            <button className="btn btn-success btn-sm" onClick={() => onShare(file)}>⇄ Share</button>
-            <button className="btn btn-danger btn-sm" onClick={handleDelete}>🗑</button>
+            <button className="btn btn-success btn-sm" onClick={() => onShare(file)}>
+              ⇄ Share
+            </button>
+            <button className="btn btn-danger btn-sm" onClick={handleDelete}>
+              🗑
+            </button>
           </>
         )}
       </div>

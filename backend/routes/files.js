@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const path = require('path');
-const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
 const File = require('../models/File');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
@@ -18,24 +17,29 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
 
     let sharedWithUsers = [];
     if (sharedWith) {
-      const emails = JSON.parse(sharedWith);
-      const users = await User.find({ email: { $in: emails } }).select('_id');
-      sharedWithUsers = users.map(u => u._id);
+      try {
+        const emails = JSON.parse(sharedWith);
+        const users = await User.find({ email: { $in: emails } }).select('_id');
+        sharedWithUsers = users.map(u => u._id);
+      } catch {}
     }
 
     const file = await File.create({
-      filename: req.file.filename,
+      filename: `${uuidv4()}_${req.file.originalname}`,
       originalName: req.file.originalname,
       fileType: req.file.mimetype,
       fileSize: req.file.size,
-      filePath: req.file.path,
+      fileData: req.file.buffer,
       uploadedBy: req.user._id,
       description: description || '',
       isPublic: isPublic === 'true',
       sharedWith: sharedWithUsers
     });
 
-    const populated = await File.findById(file._id).populate('uploadedBy', 'name email');
+    const populated = await File.findById(file._id)
+      .select('-fileData')
+      .populate('uploadedBy', 'name email');
+
     res.status(201).json(populated);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -46,6 +50,7 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
 router.get('/my', protect, async (req, res) => {
   try {
     const files = await File.find({ uploadedBy: req.user._id })
+      .select('-fileData')
       .populate('uploadedBy', 'name email')
       .populate('sharedWith', 'name email')
       .sort({ createdAt: -1 });
@@ -59,12 +64,10 @@ router.get('/my', protect, async (req, res) => {
 router.get('/shared', protect, async (req, res) => {
   try {
     const files = await File.find({
-      $or: [
-        { sharedWith: req.user._id },
-        { isPublic: true }
-      ],
+      $or: [{ sharedWith: req.user._id }, { isPublic: true }],
       uploadedBy: { $ne: req.user._id }
     })
+      .select('-fileData')
       .populate('uploadedBy', 'name email')
       .populate('sharedWith', 'name email')
       .sort({ createdAt: -1 });
@@ -84,6 +87,7 @@ router.get('/all', protect, async (req, res) => {
         { isPublic: true }
       ]
     })
+      .select('-fileData')
       .populate('uploadedBy', 'name email')
       .populate('sharedWith', 'name email')
       .sort({ createdAt: -1 });
@@ -96,8 +100,10 @@ router.get('/all', protect, async (req, res) => {
 // @route   GET /api/files/download/:id
 router.get('/download/:id', protect, async (req, res) => {
   try {
-    const file = await File.findById(req.params.id);
-    if (!file) return res.status(404).json({ message: 'File not found' });
+    const file = await File.findById(req.params.id).select('+fileData');
+    if (!file) {
+      return res.status(404).json({ message: 'File not found' });
+    }
 
     const isOwner = file.uploadedBy.toString() === req.user._id.toString();
     const isShared = file.sharedWith.map(id => id.toString()).includes(req.user._id.toString());
@@ -106,17 +112,17 @@ router.get('/download/:id', protect, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
+    if (!file.fileData || file.fileData.length === 0) {
+      return res.status(404).json({ message: 'File data missing — please re-upload this file' });
+    }
+
     file.downloadCount += 1;
     await file.save();
 
-    const filePath = path.join(__dirname, '..', 'uploads', file.filename);
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ message: 'File not found on server' });
-    }
-
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.originalName)}"`);
     res.setHeader('Content-Type', file.fileType);
-    res.sendFile(path.resolve(filePath));
+    res.setHeader('Content-Length', file.fileData.length);
+    res.send(file.fileData);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -148,6 +154,7 @@ router.put('/:id/share', protect, async (req, res) => {
 
     await file.save();
     const updated = await File.findById(file._id)
+      .select('-fileData')
       .populate('uploadedBy', 'name email')
       .populate('sharedWith', 'name email');
     res.json(updated);
@@ -164,12 +171,6 @@ router.delete('/:id', protect, async (req, res) => {
 
     if (file.uploadedBy.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Only the owner can delete this file' });
-    }
-
-    // Delete physical file
-    const filePath = path.join(__dirname, '..', 'uploads', file.filename);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
     }
 
     await file.deleteOne();
